@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Large Model Weights (>100MB, cannot be pushed to standard GitHub repo)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# Output / Temporary Files
+outputs/
+*.log
+*.tmp
