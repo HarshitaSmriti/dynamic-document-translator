@@ -157,6 +157,12 @@ class DocxTranslator:
                     f"Translating: {done_items}/{total_items} sentences ({ratio:.0%})",
                 )
 
+        if progress_callback:
+            progress_callback(
+                0.06,
+                "Loading translation model into memory (fetching weights on first run)...",
+            )
+
         translated_sentences = self.engine.translate_batch(
             unique_sentences,
             source_lang=source_lang,
