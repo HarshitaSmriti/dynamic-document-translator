@@ -138,7 +138,7 @@ if uploaded_file is not None:
 
         if detection.detected_language is None:
             st.error(
-                "❌ **Language Detection Failed**: "
+                " **Language Detection Failed**: "
                 + (detection.warning_message or "Insufficient recognizable text found in the document.")
             )
             st.stop()
@@ -175,6 +175,21 @@ if uploaded_file is not None:
             index=0 if available_targets else None,
             help="Source language is detected automatically and locked.",
         )
+
+        # Performance Profile Selection
+        speed_mode = st.radio(
+            "⚡ Translation Speed Mode:",
+            options=["Fast (1 beam, ~4x speedup - Recommended)", "Balanced (2 beams)", "High Precision (5 beams)"],
+            index=0,
+            help="Fast mode uses greedy search which is 4x faster on CPU with excellent translation quality.",
+        )
+
+        beam_map = {
+            "Fast (1 beam, ~4x speedup - Recommended)": 1,
+            "Balanced (2 beams)": 2,
+            "High Precision (5 beams)": 5,
+        }
+        selected_beams = beam_map[speed_mode]
 
         # Check route validity
         is_route_valid = True
@@ -221,7 +236,8 @@ if uploaded_file is not None:
                     target_lang=target_lang,
                     engine=engine,
                     progress_callback=update_progress,
-                    batch_size=16,
+                    batch_size=4,
+                    num_beams=selected_beams,
                 )
 
                 update_progress(1.0, "✅ Translation complete! Ready for download.")

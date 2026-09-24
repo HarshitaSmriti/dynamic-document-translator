@@ -2,12 +2,19 @@
 Translation Engine with batching, device management, and route validation.
 """
 
+import os
 from pathlib import Path
 from typing import List, Callable, Optional, Dict
 import torch
 
 from .model import load_translation_pipeline, get_device
 from .processor import LANG_TO_FLORES, DocumentIndicProcessor
+
+# Optimize CPU multi-threading for fast inference without thread contention
+if not torch.cuda.is_available():
+    cpu_cores = min(4, os.cpu_count() or 4)
+    torch.set_num_threads(cpu_cores)
+    torch.set_num_interop_threads(min(2, cpu_cores))
 
 
 class UnsupportedRouteError(ValueError):
@@ -66,9 +73,9 @@ class TranslationEngine:
         texts: List[str],
         source_lang: str,
         target_lang: str,
-        batch_size: int = 16,
+        batch_size: int = 4,
         max_length: int = 256,
-        num_beams: int = 5,
+        num_beams: int = 1,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> List[str]:
         """
@@ -100,12 +107,18 @@ class TranslationEngine:
             # Preprocess
             preprocessed = processor.preprocess_batch(chunk_texts, src_lang=src_flores, tgt_lang=tgt_flores)
 
-            # Tokenize
-            inputs = tokenizer(preprocessed, return_tensors="pt", padding=True, truncation=True)
+            # Tokenize with explicit max_length
+            inputs = tokenizer(
+                preprocessed,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=max_length,
+            )
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-            # Generate
-            with torch.no_grad():
+            # Generation with use_cache=False and inference_mode
+            with torch.inference_mode():
                 outputs = model.generate(
                     **inputs,
                     max_length=max_length,
@@ -113,9 +126,11 @@ class TranslationEngine:
                     use_cache=False,
                 )
 
-            # Decode and Postprocess
+            # Decode and Postprocess with clean punctuation and formatting
             decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            postprocessed = processor.postprocess_batch(decoded, tgt_lang=tgt_flores)
+            postprocessed = processor.postprocess_batch(
+                decoded, tgt_lang=tgt_flores, original_sentences=chunk_texts
+            )
 
             for idx, trans_text in zip(chunk_indices, postprocessed):
                 results[idx] = trans_text
@@ -133,3 +148,4 @@ class TranslationEngine:
         if not text or not text.strip():
             return text
         return self.translate_batch([text], source_lang, target_lang)[0]
+
