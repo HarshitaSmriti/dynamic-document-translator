@@ -1,11 +1,10 @@
 """
-Quick verification script for translation using the modular translator package.
+Verification script for text translation pipeline.
 """
 
 import sys
 from pathlib import Path
 
-# Ensure utf-8 output on Windows
 sys.stdout.reconfigure(encoding="utf-8")
 
 from translator.translation import TranslationEngine
@@ -18,16 +17,14 @@ engine = TranslationEngine(models_root=MODELS_DIR)
 
 text = "Hello, how are you today?"
 detection = detect_language_from_text(text)
-print(f"Input text: '{text}' (Detected: {detection.detected_language})")
+print(f"Input: '{text}' (Detected: {detection.detected_language})")
 
-# Translate to Hindi
 hi_output = engine.translate_text(text, source_lang="English", target_lang="Hindi")
-print(f"Hindi Output: '{hi_output}'")
+print(f"Hindi: '{hi_output}'")
 
-# Translate to Bengali
 bn_output = engine.translate_text(text, source_lang="English", target_lang="Bengali")
-print(f"Bengali Output: '{bn_output}'")
+print(f"Bengali: '{bn_output}'")
 
-# Translate back from Hindi to English
 en_output = engine.translate_text(hi_output, source_lang="Hindi", target_lang="English")
 print(f"Back to English: '{en_output}'")
+

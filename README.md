@@ -1,28 +1,28 @@
-# 📄 Dynamic Document Translator
-
-Production Streamlit application for translating DOCX documents between **English**, **Hindi**, and **Bengali** with full structure, format, and typography preservation, powered by fine-tuned **IndicTrans2** models.
-
+# Dynamic Document Translator
+ 
+DOCX document translation platform between **English**, **Hindi**, and **Bengali** with formatting and layout preservation, powered by fine-tuned **IndicTrans2** sequence-to-sequence models.
+ 
 ---
-
-## 🚀 Features
-
-- **Automated Language Detection**: Uses Unicode script-distribution analysis (Latin, Devanagari, Bengali) for deterministic language identification and confidence scoring.
-- **Deep DOCX Structure Preservation**: Retains document headings, paragraphs, run-level styling (bold, italic, underline), alignments, and tables across translations.
-- **Fine-Tuned IndicTrans2 Engine**: Custom inference pipeline with `use_cache=False` for zero word/token repetition artifacts.
-- **Strict Route Enforcement**: Seamlessly handles English $\leftrightarrow$ Hindi and English $\leftrightarrow$ Bengali routes while disabling direct Hindi $\leftrightarrow$ Bengali routes with clear user notices.
-
+ 
+## Key Capabilities
+ 
+- **Automated Language Detection**: Unicode script-distribution analysis across Latin, Devanagari, and Bengali scripts with confidence scoring.
+- **DOCX Structure Preservation**: Retains headings, paragraph alignments, run-level styles (bold, italic, colors), tables, bullet markers, and headers/footers.
+- **Fine-Tuned IndicTrans2 Engine**: Pure-Python normalization and tokenizer shims with `use_cache=False` to prevent token stuttering.
+- **Route Validation**: Supports English <-> Hindi and English <-> Bengali translation routes.
+ 
 ---
-
-## 📁 Repository Structure
-
+ 
+## Project Structure
+ 
 ```text
 dynamic-document-translator/
 ├── .streamlit/
 │   └── config.toml               # Streamlit server & CORS configuration
 ├── models/
 │   └── fine_tuned/
-│       ├── en_indic_fine_tuned/   # Tokenizers, configs & scripts for EN -> Indic
-│       └── indic_en_fine_tuned/   # Tokenizers, configs & scripts for Indic -> EN
+│       ├── en_indic_fine_tuned/   # Tokenizers, configs & weights for EN -> Indic
+│       └── indic_en_fine_tuned/   # Tokenizers, configs & weights for Indic -> EN
 ├── translator/
 │   ├── __init__.py
 │   ├── document.py               # Structure-preserving DOCX parser & reconstructor
@@ -31,54 +31,47 @@ dynamic-document-translator/
 │   ├── processor.py              # Pure-Python normalization & transliteration processor
 │   └── translation.py           # Batched inference engine with route validation
 ├── app.py                        # Streamlit web application
+├── generate_brd.py               # Script to generate sample BRD test document
+├── test_brd_translation.py       # Comprehensive BRD translation test suite
+├── test_translation.py           # Quick verification script
 ├── requirements.txt              # Pinned dependencies
-├── test_translation.py           # Verification and regression tests
 └── README.md
 ```
-
+ 
 ---
-
-## 🛠️ Installation & Setup
-
-1. **Clone the repository**:
-   ```bash
-   git clone <REPO_URL>
-   cd dynamic-document-translator
-   ```
-
-2. **Create a virtual environment**:
+ 
+## Setup & Execution
+ 
+1. **Create and activate a virtual environment**:
    ```bash
    python -m venv .venv
-   .venv\Scripts\activate  # On Windows
-   # source .venv/bin/activate  # On Linux/macOS
+   .venv\Scripts\activate  # Windows
+   # source .venv/bin/activate  # Linux/macOS
    ```
-
-3. **Install dependencies**:
+ 
+2. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-
-4. **Add Model Weights**:
-   Place the fine-tuned `model.safetensors` files inside their respective directories:
-   - `models/fine_tuned/en_indic_fine_tuned/model.safetensors`
-   - `models/fine_tuned/indic_en_fine_tuned/model.safetensors`
-
-5. **Run the Streamlit Application**:
+ 
+3. **Launch the application**:
    ```bash
    streamlit run app.py
    ```
-   Open `http://localhost:8501` in your browser.
-
+ 
 ---
-
-## 🧪 Running Tests
-
+ 
+## Testing
+ 
+Run translation verification:
 ```bash
 python test_translation.py
+python test_brd_translation.py
 ```
-
+ 
 ---
+ 
+## License
+ 
+MIT
 
-## 📄 License
-
-MIT License.

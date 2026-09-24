@@ -1,7 +1,5 @@
 """
-Dynamic Document Translator
-Production Streamlit Application for Translating DOCX Documents
-using fine-tuned IndicTrans2 Models.
+Streamlit application for translating DOCX documents using fine-tuned IndicTrans2 models.
 """
 
 from pathlib import Path
@@ -14,60 +12,48 @@ from translator.translation import TranslationEngine, UnsupportedRouteError
 from translator.document import translate_docx_document
 from translator.model import get_device
 
-# ---------------------------------------------------------------------------
-# Page Configuration & Styling
-# ---------------------------------------------------------------------------
-
 st.set_page_config(
     page_title="Dynamic Document Translator",
-    page_icon="📄",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Custom CSS for polished production UI
+# Application styling
 st.markdown(
     """
     <style>
     .main-header {
-        font-size: 2.3rem;
+        font-size: 2.1rem;
         font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 0.2rem;
+        color: #0f172a;
+        margin-bottom: 0.25rem;
     }
     .sub-header {
-        font-size: 1.05rem;
-        color: #64748B;
-        margin-bottom: 1.8rem;
+        font-size: 1rem;
+        color: #475569;
+        margin-bottom: 1.5rem;
     }
     .stat-badge {
         display: inline-block;
-        padding: 0.35rem 0.75rem;
-        border-radius: 6px;
+        padding: 0.3rem 0.7rem;
+        border-radius: 4px;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
     .badge-primary {
-        background-color: #EEF2FF;
-        color: #4F46E5;
-        border: 1px solid #C7D2FE;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
     }
     .badge-success {
-        background-color: #ECFDF5;
-        color: #059669;
-        border: 1px solid #A7F3D0;
+        background-color: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
     }
     .badge-warning {
-        background-color: #FFFBEB;
-        color: #D97706;
-        border: 1px solid #FDE68A;
-    }
-    .card-box {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1.25rem;
-        margin-bottom: 1.2rem;
+        background-color: #fffbeb;
+        color: #92400e;
+        border: 1px solid #fde68a;
     }
     </style>
     """,
@@ -76,36 +62,23 @@ st.markdown(
 
 BASE_DIR = Path(__file__).resolve().parent
 MODELS_DIR = BASE_DIR / "models"
-
 SUPPORTED_LANGUAGES = ["English", "Hindi", "Bengali"]
 
 
 @st.cache_resource(show_spinner=False)
 def get_translation_engine() -> TranslationEngine:
-    """
-    Streamlit cached resource loader for the translation engine.
-    Ensures model pipelines are loaded only once in memory.
-    """
     return TranslationEngine(models_root=MODELS_DIR)
 
 
-# ---------------------------------------------------------------------------
-# Header Section
-# ---------------------------------------------------------------------------
-
-st.markdown('<div class="main-header">📄 Dynamic Document Translator</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Dynamic Document Translator</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-header">Accurate DOCX document translation with structure and format preservation '
-    'powered by fine-tuned IndicTrans2 models.</div>',
+    '<div class="sub-header">DOCX document translation with structure and format preservation '
+    'using fine-tuned IndicTrans2 models.</div>',
     unsafe_allow_html=True,
 )
 
 device = get_device()
 engine = get_translation_engine()
-
-# ---------------------------------------------------------------------------
-# Main Workflow
-# ---------------------------------------------------------------------------
 
 col_left, col_right = st.columns([1.1, 0.9], gap="large")
 
@@ -118,7 +91,6 @@ with col_left:
     )
 
 if uploaded_file is not None:
-    # Read document into memory
     file_bytes = uploaded_file.getvalue()
     doc_buffer = BytesIO(file_bytes)
 
@@ -128,7 +100,6 @@ if uploaded_file is not None:
         st.error(f"Failed to parse DOCX file: {e}")
         st.stop()
 
-    # Detect Language
     detection = detect_document_language(doc)
 
     with col_left:
@@ -138,60 +109,54 @@ if uploaded_file is not None:
 
         if detection.detected_language is None:
             st.error(
-                " **Language Detection Failed**: "
+                "Language Detection Failed: "
                 + (detection.warning_message or "Insufficient recognizable text found in the document.")
             )
             st.stop()
 
-        # Display detection result
         detected_lang = detection.detected_language
         conf_pct = detection.confidence * 100
 
         st.markdown(
-            f'<div style="margin: 0.8rem 0;">'
-            f'<span class="stat-badge badge-primary">Detected Language: <strong>{detected_lang}</strong></span> &nbsp; '
+            f'<div style="margin: 0.75rem 0;">'
+            f'<span class="stat-badge badge-primary">Detected: <strong>{detected_lang}</strong></span> &nbsp; '
             f'<span class="stat-badge badge-success">Confidence: <strong>{conf_pct:.1f}%</strong></span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
         if detection.is_ambiguous and detection.warning_message:
-            st.warning(f"⚠️ **Language Ambiguity Notice**: {detection.warning_message}")
+            st.warning(f"Language Ambiguity: {detection.warning_message}")
 
-        # Script character distribution breakdown
-        with st.expander("📊 View Script Character Breakdown"):
-            st.write(f"**Total Alphabetic Characters Analyzed:** {detection.total_valid_chars}")
+        with st.expander("Script Character Breakdown"):
+            st.write(f"**Total Characters Analyzed:** {detection.total_valid_chars}")
             st.json(detection.char_counts)
 
     with col_right:
         st.subheader("3. Select Target Language")
-
-        # Available targets (exclude detected source language)
         available_targets = [lang for lang in SUPPORTED_LANGUAGES if lang != detected_lang]
 
         target_lang = st.selectbox(
             "Translate to:",
             options=available_targets,
             index=0 if available_targets else None,
-            help="Source language is detected automatically and locked.",
+            help="Source language is locked based on document detection.",
         )
 
-        # Performance Profile Selection
         speed_mode = st.radio(
-            "⚡ Translation Speed Mode:",
-            options=["Fast (1 beam, ~4x speedup - Recommended)", "Balanced (2 beams)", "High Precision (5 beams)"],
+            "Translation Speed Mode:",
+            options=["Fast (Greedy search, 1 beam)", "Balanced (2 beams)", "High Precision (5 beams)"],
             index=0,
-            help="Fast mode uses greedy search which is 4x faster on CPU with excellent translation quality.",
+            help="Greedy search is recommended for fast CPU inference.",
         )
 
         beam_map = {
-            "Fast (1 beam, ~4x speedup - Recommended)": 1,
+            "Fast (Greedy search, 1 beam)": 1,
             "Balanced (2 beams)": 2,
             "High Precision (5 beams)": 5,
         }
         selected_beams = beam_map[speed_mode]
 
-        # Check route validity
         is_route_valid = True
         route_error_message = ""
 
@@ -202,17 +167,17 @@ if uploaded_file is not None:
             route_error_message = str(err)
 
         if not is_route_valid:
-            st.error(f"⛔ **Unsupported Route**: {route_error_message}")
+            st.error(f"Unsupported Route: {route_error_message}")
             st.info(
-                "ℹ️ **Note**: Direct translation between Indic languages (Hindi ↔ Bengali) is disabled. "
-                "Only English ↔ Indic routes are supported."
+                "Direct translation between Indic languages (Hindi <-> Bengali) is disabled. "
+                "Only English <-> Indic routes are supported."
             )
 
         st.markdown("---")
-        st.subheader("4. Translate & Download")
+        st.subheader("4. Translate and Download")
 
         translate_button = st.button(
-            "🚀 Translate Document",
+            "Translate Document",
             type="primary",
             disabled=not is_route_valid,
             use_container_width=True,
@@ -227,9 +192,7 @@ if uploaded_file is not None:
                 status_text.info(message)
 
             try:
-                # Reset buffer position for translation
                 doc_buffer.seek(0)
-
                 translated_buffer = translate_docx_document(
                     doc_source=doc_buffer,
                     source_lang=detected_lang,
@@ -240,14 +203,13 @@ if uploaded_file is not None:
                     num_beams=selected_beams,
                 )
 
-                update_progress(1.0, "✅ Translation complete! Ready for download.")
+                update_progress(1.0, "Translation complete. Ready for download.")
 
-                # Output filename
                 orig_stem = Path(uploaded_file.name).stem
                 output_filename = f"{orig_stem}_{target_lang.lower()}.docx"
 
                 st.download_button(
-                    label=f"📥 Download Translated Document ({output_filename})",
+                    label=f"Download Translated Document ({output_filename})",
                     data=translated_buffer,
                     file_name=output_filename,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -257,7 +219,8 @@ if uploaded_file is not None:
 
             except Exception as e:
                 status_text.empty()
-                st.error(f"❌ **Translation Error occurred:** {str(e)}")
+                st.error(f"Translation Error: {str(e)}")
 else:
     with col_right:
-        st.info("👈 Please upload a `.docx` document to start translation.")
+        st.info("Upload a .docx document to begin.")
+

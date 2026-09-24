@@ -1,13 +1,12 @@
 """
-Model and Tokenizer loader with runtime environment compatibility shims.
-Provides Streamlit resource-cached loaders with GPU/CPU auto-detection.
+Model and tokenizer loaders with runtime compatibility shims for IndicTrans2.
 """
 
 import sys
 import types
+import importlib.util
 from pathlib import Path
 from typing import Tuple, Any
-import importlib.util
 import torch
 import transformers
 import transformers.utils
@@ -16,22 +15,17 @@ from transformers import AutoModelForSeq2SeqLM
 
 from .processor import DocumentIndicProcessor
 
-# ---------------------------------------------------------------------------
-# Runtime Compatibility Shims for Transformers 4.32.1 & IndicTrans Checkpoints
-# ---------------------------------------------------------------------------
 
 def _apply_transformers_compatibility_shims() -> None:
     """
-    Applies non-invasive shims to ensure older/custom IndicTrans2 modules
-    function seamlessly with Transformers 4.32.1.
+    Shims to ensure custom IndicTrans2 architecture modules
+    work with modern Transformers releases.
     """
-    # 1. Provide _attn_implementation property on PretrainedConfig
     if not hasattr(PretrainedConfig, "_attn_implementation"):
         PretrainedConfig._attn_implementation = property(
             lambda self: getattr(self, "attn_implementation", "eager")
         )
 
-    # 2. Provide transformers.modeling_attn_mask_utils if missing
     if "transformers.modeling_attn_mask_utils" not in sys.modules:
         mod_attn = types.ModuleType("transformers.modeling_attn_mask_utils")
 
@@ -73,7 +67,6 @@ def _apply_transformers_compatibility_shims() -> None:
         mod_attn._prepare_4d_causal_attention_mask_for_sdpa = _prepare_4d_causal_attention_mask
         sys.modules["transformers.modeling_attn_mask_utils"] = mod_attn
 
-    # 3. Provide transformers.integrations.deepspeed if missing
     if "transformers.integrations.deepspeed" not in sys.modules:
         import transformers.deepspeed as ds
         mod_integrations = types.ModuleType("transformers.integrations")
@@ -83,28 +76,22 @@ def _apply_transformers_compatibility_shims() -> None:
         sys.modules["transformers.integrations"] = mod_integrations
         sys.modules["transformers.integrations.deepspeed"] = mod_ds
 
-    # 4. Flash Attention availability flags
     if not hasattr(transformers.utils, "is_flash_attn_2_available"):
         transformers.utils.is_flash_attn_2_available = lambda: False
     if not hasattr(transformers.utils, "is_flash_attn_greater_or_equal_2_10"):
         transformers.utils.is_flash_attn_greater_or_equal_2_10 = lambda: False
 
 
-# Apply shims on module import
 _apply_transformers_compatibility_shims()
 
 
 def get_device() -> torch.device:
-    """
-    Returns CUDA device if available, otherwise CPU.
-    """
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
     """
-    Safely loads the IndicTransTokenizer from the checkpoint directory,
-    resolving token recursion and missing added_tokens_decoder attributes.
+    Loads IndicTransTokenizer from local checkpoint directory.
     """
     tokenization_path = model_dir / "tokenization_indictrans.py"
     if not tokenization_path.exists():
@@ -114,7 +101,6 @@ def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    # Resolve token recursion bug and attribute initialization
     mod.IndicTransTokenizer.added_tokens_encoder = {}
     mod.IndicTransTokenizer.added_tokens_decoder = {}
     mod.IndicTransTokenizer._convert_token_to_id = (
@@ -132,7 +118,7 @@ def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
 
 def load_translation_pipeline(model_dir: Path) -> Tuple[Any, Any, DocumentIndicProcessor]:
     """
-    Loads tokenizer, Seq2SeqLM model, and DocumentIndicProcessor for a given checkpoint.
+    Loads tokenizer, Seq2Seq model, and text processor.
     """
     _apply_transformers_compatibility_shims()
     device = get_device()
@@ -144,3 +130,4 @@ def load_translation_pipeline(model_dir: Path) -> Tuple[Any, Any, DocumentIndicP
 
     processor = DocumentIndicProcessor()
     return tokenizer, model, processor
+

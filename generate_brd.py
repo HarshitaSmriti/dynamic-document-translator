@@ -1,6 +1,5 @@
-﻿"""
-Script to generate a comprehensive, realistic Business Requirement Document (BRD)
-for testing the Dynamic Document Translator.
+"""
+Generates sample Business Requirement Document (BRD) for translation testing.
 """
 
 from pathlib import Path
@@ -8,25 +7,24 @@ from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+
 
 def set_cell_background(cell, hex_color: str):
-    """Sets background color of a table cell."""
     shading_elm = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{hex_color}"/>')
     cell._tc.get_or_add_tcPr().append(shading_elm)
+
 
 def create_sample_brd(output_path: Path):
     doc = Document()
 
-    # Set document margins
     for section in doc.sections:
         section.top_margin = Inches(1.0)
         section.bottom_margin = Inches(1.0)
         section.left_margin = Inches(1.0)
         section.right_margin = Inches(1.0)
-        
-        # Header & Footer
+
         header = section.header
         hp = header.paragraphs[0]
         hp.text = "CONFIDENTIAL - Dynamic Enterprise Solutions | Business Requirement Document"
@@ -43,7 +41,7 @@ def create_sample_brd(output_path: Path):
             fp.runs[0].font.size = Pt(8.5)
             fp.runs[0].font.color.rgb = RGBColor(128, 128, 128)
 
-    # Document Title
+    # Title
     title_p = doc.add_paragraph()
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after = Pt(4)
@@ -60,7 +58,7 @@ def create_sample_brd(output_path: Path):
     run_sub.font.color.rgb = RGBColor(79, 70, 229)
     run_sub.bold = True
 
-    # Metadata Card / Table
+    # Metadata Table
     meta_table = doc.add_table(rows=4, cols=2)
     meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
     meta_data = [
@@ -74,12 +72,12 @@ def create_sample_brd(output_path: Path):
         cell_0, cell_1 = row.cells[0], row.cells[1]
         set_cell_background(cell_0, "F8FAFC")
         set_cell_background(cell_1, "FFFFFF")
-        
+
         p0 = cell_0.paragraphs[0]
         r0 = p0.add_run(label)
         r0.bold = True
         r0.font.size = Pt(9.5)
-        
+
         p1 = cell_1.paragraphs[0]
         r1 = p1.add_run(val)
         r1.font.size = Pt(9.5)
@@ -90,7 +88,7 @@ def create_sample_brd(output_path: Path):
     h1 = doc.add_heading(level=1)
     h1_run = h1.add_run("1. Executive Summary")
     h1_run.font.color.rgb = RGBColor(30, 41, 59)
-    
+
     p = doc.add_paragraph()
     p.add_run(
         "Modern global enterprises produce high volumes of documentation in English, Hindi, and Bengali. "
@@ -100,7 +98,7 @@ def create_sample_brd(output_path: Path):
         "table structures, bullet points, headers, footers, and font formatting without manual intervention."
     )
 
-    # 2. Project Scope & Business Objectives
+    # 2. Scope & Objectives
     h2 = doc.add_heading(level=1)
     h2.add_run("2. Project Scope and Business Objectives")
 
@@ -120,7 +118,7 @@ def create_sample_brd(output_path: Path):
         bp = doc.add_paragraph(style='List Bullet')
         bp.add_run(obj)
 
-    # 3. Stakeholder & Roles
+    # 3. Stakeholder Roles
     h3 = doc.add_heading(level=1)
     h3.add_run("3. Stakeholder Analysis and Roles")
 
@@ -170,7 +168,7 @@ def create_sample_brd(output_path: Path):
     freqs = [
         ("FR-001", "Automatic Script & Language Detection", "High", "Accurately classify English, Hindi, and Bengali scripts with >90% confidence."),
         ("FR-002", "Deep Document Formatting Preservation", "Critical", "Retain all table borders, cell alignments, headers, footers, and font styles in generated DOCX."),
-        ("FR-003", "Optimized Batch Inference", "High", "Process text segments with dynamic batching (batch size = 8) and fast greedy beam search."),
+        ("FR-003", "Optimized Batch Inference", "High", "Process text segments with dynamic batching (batch size = 4) and fast greedy beam search."),
         ("FR-004", "Route Validation & Restriction", "Medium", "Enforce English <-> Indic routes and provide clear user notifications for unsupported Indic <-> Indic routes."),
         ("FR-005", "Interactive Web Interface", "High", "Responsive Streamlit dashboard with file drag-and-drop, progress tracking, and one-click download."),
     ]
@@ -203,7 +201,7 @@ def create_sample_brd(output_path: Path):
         r_title.bold = True
         p.add_run(desc)
 
-    # 6. Technical Architecture & Constraints
+    # 6. Technical Architecture
     h6 = doc.add_heading(level=1)
     h6.add_run("6. Technical Architecture and Constraints")
 
@@ -223,7 +221,7 @@ def create_sample_brd(output_path: Path):
         bp = doc.add_paragraph(style='List Bullet')
         bp.add_run(c)
 
-    # 7. Sign-off & Approvals
+    # 7. Approvals
     h7 = doc.add_heading(level=1)
     h7.add_run("7. Document Approval Sign-off")
 
@@ -255,8 +253,10 @@ def create_sample_brd(output_path: Path):
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_path))
-    print(f"Sample BRD created successfully at: {output_path}")
+    print(f"Sample BRD created: {output_path}")
+
 
 if __name__ == "__main__":
     out_file = Path(__file__).resolve().parent / "sample_brd_document.docx"
     create_sample_brd(out_file)
+
