@@ -76,10 +76,70 @@ def _apply_transformers_compatibility_shims() -> None:
         sys.modules["transformers.integrations"] = mod_integrations
         sys.modules["transformers.integrations.deepspeed"] = mod_ds
 
+    if "transformers.onnx" not in sys.modules:
+        mod_onnx = types.ModuleType("transformers.onnx")
+        mod_onnx_utils = types.ModuleType("transformers.onnx.utils")
+
+        class OnnxConfig:
+            pass
+
+        class OnnxSeq2SeqConfigWithPast(OnnxConfig):
+            pass
+
+        mod_onnx.OnnxConfig = OnnxConfig
+        mod_onnx.OnnxSeq2SeqConfigWithPast = OnnxSeq2SeqConfigWithPast
+        mod_onnx_utils.compute_effective_axis_dimension = lambda *args, **kwargs: 1
+
+        sys.modules["transformers.onnx"] = mod_onnx
+        sys.modules["transformers.onnx.utils"] = mod_onnx_utils
+
+    from transformers.modeling_utils import PreTrainedModel
+
+    if not hasattr(PreTrainedModel, "_tie_or_clone_weights"):
+        def _tie_or_clone_weights(self, output_embeddings, input_embeddings):
+            output_embeddings.weight = input_embeddings.weight
+            if getattr(output_embeddings, "bias", None) is not None:
+                pad_len = output_embeddings.weight.shape[0] - output_embeddings.bias.shape[0]
+                if pad_len > 0:
+                    output_embeddings.bias.data = torch.nn.functional.pad(
+                        output_embeddings.bias.data,
+                        (0, pad_len),
+                        "constant",
+                        0,
+                    )
+            if hasattr(output_embeddings, "out_features") and hasattr(input_embeddings, "num_embeddings"):
+                output_embeddings.out_features = input_embeddings.num_embeddings
+
+        PreTrainedModel._tie_or_clone_weights = _tie_or_clone_weights
+
     if not hasattr(transformers.utils, "is_flash_attn_2_available"):
         transformers.utils.is_flash_attn_2_available = lambda: False
     if not hasattr(transformers.utils, "is_flash_attn_greater_or_equal_2_10"):
         transformers.utils.is_flash_attn_greater_or_equal_2_10 = lambda: False
+
+    try:
+        import transformers.dynamic_module_utils as dmu
+        if not getattr(dmu, "_indic_patched", False):
+            orig_get_class = dmu.get_class_in_module
+
+            def _patched_get_class(class_name, module, **kwargs):
+                cls = orig_get_class(class_name, module, **kwargs)
+                if hasattr(cls, "tie_weights"):
+                    orig_tw = cls.tie_weights
+
+                    def _wrapped_tw(self, *a, **kw):
+                        try:
+                            return orig_tw(self, *a, **kw)
+                        except TypeError:
+                            return orig_tw(self)
+
+                    cls.tie_weights = _wrapped_tw
+                return cls
+
+            dmu.get_class_in_module = _patched_get_class
+            dmu._indic_patched = True
+    except Exception:
+        pass
 
 
 _apply_transformers_compatibility_shims()
@@ -103,9 +163,24 @@ def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
 
     mod.IndicTransTokenizer.added_tokens_encoder = {}
     mod.IndicTransTokenizer.added_tokens_decoder = {}
+    mod.IndicTransTokenizer._added_tokens_encoder = {}
+    mod.IndicTransTokenizer._added_tokens_decoder = {}
+    mod.IndicTransTokenizer._special_tokens_map = {}
     mod.IndicTransTokenizer._convert_token_to_id = (
         lambda self, token: self.encoder.get(token, self.encoder.get(self.unk_token, 3))
     )
+
+    orig_init = mod.IndicTransTokenizer.__init__
+
+    def _patched_init(self, *args, **kwargs):
+        self.__dict__["_special_tokens_map"] = {}
+        self.__dict__["_added_tokens_encoder"] = {}
+        self.__dict__["_added_tokens_decoder"] = {}
+        self.__dict__["added_tokens_encoder"] = {}
+        self.__dict__["added_tokens_decoder"] = {}
+        orig_init(self, *args, **kwargs)
+
+    mod.IndicTransTokenizer.__init__ = _patched_init
 
     tokenizer = mod.IndicTransTokenizer(
         src_vocab_fp=str(model_dir / "dict.SRC.json"),
