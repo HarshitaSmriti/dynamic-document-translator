@@ -191,11 +191,53 @@ def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
     return tokenizer
 
 
+def ensure_model_files(model_dir: Path) -> None:
+    """
+    Ensures model weights exist in model_dir. If missing (e.g. on fresh git clone in Cloud),
+    downloads model.safetensors from the Hugging Face Hub repository.
+    """
+    safetensors_path = model_dir / "model.safetensors"
+    bin_path = model_dir / "pytorch_model.bin"
+    if safetensors_path.exists() or bin_path.exists():
+        return
+
+    repo_id = None
+    config_path = model_dir / "config.json"
+    if config_path.exists():
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            repo_id = cfg.get("name_or_path")
+        except Exception:
+            pass
+
+    if not repo_id or not str(repo_id).startswith("ai4bharat/"):
+        if "indic_en" in str(model_dir):
+            repo_id = "ai4bharat/indictrans2-indic-en-dist-200M"
+        else:
+            repo_id = "ai4bharat/indictrans2-en-indic-dist-200M"
+
+    try:
+        from huggingface_hub import hf_hub_download
+        model_dir.mkdir(parents=True, exist_ok=True)
+        hf_hub_download(
+            repo_id=repo_id,
+            filename="model.safetensors",
+            local_dir=str(model_dir),
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Model weights (model.safetensors) not found in {model_dir} and automatic download from {repo_id} failed: {e}"
+        )
+
+
 def load_translation_pipeline(model_dir: Path) -> Tuple[Any, Any, DocumentIndicProcessor]:
     """
     Loads tokenizer, Seq2Seq model, and text processor.
     """
     _apply_transformers_compatibility_shims()
+    ensure_model_files(model_dir)
     device = get_device()
 
     tokenizer = load_custom_indictrans_tokenizer(model_dir)
