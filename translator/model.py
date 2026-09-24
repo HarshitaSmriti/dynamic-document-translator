@@ -194,42 +194,59 @@ def load_custom_indictrans_tokenizer(model_dir: Path) -> Any:
 def ensure_model_files(model_dir: Path) -> None:
     """
     Ensures model weights exist in model_dir. If missing (e.g. on fresh git clone in Cloud),
-    downloads model.safetensors from the Hugging Face Hub repository.
+    downloads weights from public ungated Hugging Face repositories or uses HF token if available.
     """
     safetensors_path = model_dir / "model.safetensors"
     bin_path = model_dir / "pytorch_model.bin"
     if safetensors_path.exists() or bin_path.exists():
         return
 
-    repo_id = None
-    config_path = model_dir / "config.json"
-    if config_path.exists():
-        try:
-            import json
-            with open(config_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            repo_id = cfg.get("name_or_path")
-        except Exception:
-            pass
-
-    if not repo_id or not str(repo_id).startswith("ai4bharat/"):
-        if "indic_en" in str(model_dir):
-            repo_id = "ai4bharat/indictrans2-indic-en-dist-200M"
-        else:
-            repo_id = "ai4bharat/indictrans2-en-indic-dist-200M"
-
+    import os
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
     try:
-        from huggingface_hub import hf_hub_download
-        model_dir.mkdir(parents=True, exist_ok=True)
-        hf_hub_download(
-            repo_id=repo_id,
-            filename="model.safetensors",
-            local_dir=str(model_dir),
-        )
-    except Exception as e:
-        raise RuntimeError(
-            f"Model weights (model.safetensors) not found in {model_dir} and automatic download from {repo_id} failed: {e}"
-        )
+        import streamlit as st
+        if not token and hasattr(st, "secrets") and "HF_TOKEN" in st.secrets:
+            token = st.secrets["HF_TOKEN"]
+    except Exception:
+        pass
+
+    is_indic_en = "indic_en" in str(model_dir)
+
+    if is_indic_en:
+        candidate_repos = [
+            ("Raghavan/indictrans2-indic-en-dist-200M", ["pytorch_model.bin"]),
+            ("ai4bharat/indictrans2-indic-en-dist-200M", ["model.safetensors", "pytorch_model.bin"]),
+        ]
+    else:
+        candidate_repos = [
+            ("naklitechie/indictrans2-en-indic-dist-200M", ["model.safetensors", "pytorch_model.bin"]),
+            ("Raghavan/indictrans2-en-indic-dist-200M", ["pytorch_model.bin"]),
+            ("ai4bharat/indictrans2-en-indic-dist-200M", ["model.safetensors", "pytorch_model.bin"]),
+        ]
+
+    from huggingface_hub import hf_hub_download
+
+    model_dir.mkdir(parents=True, exist_ok=True)
+    download_errors = []
+
+    for repo_id, weight_files in candidate_repos:
+        for fname in weight_files:
+            try:
+                hf_hub_download(
+                    repo_id=repo_id,
+                    filename=fname,
+                    local_dir=str(model_dir),
+                    token=token,
+                )
+                if (model_dir / fname).exists():
+                    return
+            except Exception as e:
+                download_errors.append(f"{repo_id}/{fname}: {e}")
+
+    error_summary = "\n".join(download_errors)
+    raise RuntimeError(
+        f"Model weights not found in {model_dir} and automatic download failed across all mirrors:\n{error_summary}"
+    )
 
 
 def load_translation_pipeline(model_dir: Path) -> Tuple[Any, Any, DocumentIndicProcessor]:
